@@ -70,6 +70,4 @@ Your API key and conversation history live only in browser memory for the curren
 - Voice-activity detection is amplitude-based, so it can misfire in noisy environments (tune `VAD_THRESHOLD` in the script if needed).
 - Conversation history is not persisted between sessions.
 
-## License
 
-_Add your license here (e.g. MIT)._
