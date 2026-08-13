@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sarvam voice bot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0:#101314;
+    --bg-1:#171b1d;
+    --bg-2:#1f2427;
+    --line:#2a3033;
+    --text-hi:#ecede9;
+    --text-mid:#a9afac;
+    --text-lo:#6b716e;
+    --teal:#5eead4;
+    --teal-dim:#1d3a35;
+    --amber:#f0b429;
+    --amber-dim:#3a2f10;
+    --red:#e2645c;
+    --red-dim:#3a1e1c;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg-0);
+    color:var(--text-hi);
+    font-family:'Inter',system-ui,sans-serif;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    padding:32px 16px 80px;
+  }
+  .shell{width:100%;max-width:720px;}
+
+  .topbar{
+    display:flex;justify-content:space-between;align-items:flex-start;
+    margin-bottom:20px;
+  }
+  .brand{display:flex;flex-direction:column;gap:2px;}
+  .brand .mark{
+    font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.14em;
+    color:var(--teal);text-transform:uppercase;
+  }
+  .brand h1{font-size:20px;font-weight:600;margin:0;letter-spacing:-.01em;}
+  .brand .sub{font-size:13px;color:var(--text-mid);margin-top:2px;}
+
+  button.icon-btn{
+    background:var(--bg-1);border:1px solid var(--line);color:var(--text-mid);
+    width:36px;height:36px;border-radius:8px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;font-size:16px;
+    transition:border-color .15s, color .15s;
+  }
+  button.icon-btn:hover{border-color:var(--teal);color:var(--teal);}
+
+  .panel{
+    background:var(--bg-1);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:20px;
+    margin-bottom:16px;
+  }
+
+  /* settings drawer */
+  #settings{display:none;}
+  #settings.open{display:block;}
+  .field{margin-bottom:14px;}
+  .field:last-child{margin-bottom:0;}
+  .field label{
+    display:block;font-family:'IBM Plex Mono',monospace;font-size:11px;
+    letter-spacing:.08em;text-transform:uppercase;color:var(--text-lo);margin-bottom:6px;
+  }
+  .field input[type=text],.field input[type=password],.field select{
+    width:100%;background:var(--bg-2);border:1px solid var(--line);color:var(--text-hi);
+    padding:9px 10px;border-radius:8px;font-size:14px;font-family:inherit;
+  }
+  .field input:focus,.field select:focus{outline:none;border-color:var(--teal);}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .hint{font-size:12px;color:var(--text-lo);margin-top:6px;line-height:1.5;}
+  .hint a{color:var(--teal);}
+  .toggle-line{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  .switch{position:relative;width:38px;height:22px;flex-shrink:0;}
+  .switch input{opacity:0;width:0;height:0;}
+  .slider-el{position:absolute;inset:0;background:var(--bg-2);border:1px solid var(--line);border-radius:22px;cursor:pointer;transition:.15s;}
+  .slider-el:before{content:"";position:absolute;height:16px;width:16px;left:2px;top:2px;background:var(--text-mid);border-radius:50%;transition:.15s;}
+  .switch input:checked + .slider-el{background:var(--teal-dim);border-color:var(--teal);}
+  .switch input:checked + .slider-el:before{transform:translateX(16px);background:var(--teal);}
+
+  /* scope */
+  .scope{
+    position:relative;
+    background:
+      linear-gradient(var(--line) 1px,transparent 1px) 0 0/100% 25%,
+      linear-gradient(90deg,var(--line) 1px,transparent 1px) 0 0/8.33% 100%,
+      var(--bg-2);
+    background-blend-mode:normal;
+    border:1px solid var(--line);border-radius:12px;
+    height:120px;overflow:hidden;margin-bottom:14px;
+    opacity:.55;
+  }
+  .scope canvas{width:100%;height:100%;display:block;}
+
+  .status-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+  .status{
+    display:flex;align-items:center;gap:8px;
+    font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--text-mid);
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--text-lo);transition:.15s;}
+  .status.listening .dot{background:var(--teal);box-shadow:0 0 0 3px var(--teal-dim);}
+  .status.thinking .dot{background:var(--amber);box-shadow:0 0 0 3px var(--amber-dim);animation:pulse 1s infinite;}
+  .status.speaking .dot{background:var(--amber);box-shadow:0 0 0 3px var(--amber-dim);}
+  .status.error .dot{background:var(--red);box-shadow:0 0 0 3px var(--red-dim);}
+  @keyframes pulse{50%{opacity:.35;}}
+  .latency{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-lo);}
+
+  /* transcript */
+  .transcript{
+    height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;
+    padding-right:4px;
+  }
+  .transcript::-webkit-scrollbar{width:6px;}
+  .transcript::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px;}
+  .msg{max-width:82%;padding:10px 13px;border-radius:12px;font-size:14.5px;line-height:1.55;}
+  .msg.user{align-self:flex-end;background:var(--teal-dim);color:var(--text-hi);border:1px solid #2a5a51;border-bottom-right-radius:3px;}
+  .msg.bot{align-self:flex-start;background:var(--bg-2);border:1px solid var(--line);border-bottom-left-radius:3px;}
+  .msg.bot.streaming::after{content:"▍";color:var(--amber);animation:pulse .8s infinite;}
+  .msg.system{align-self:center;color:var(--text-lo);font-size:12px;font-family:'IBM Plex Mono',monospace;background:none;border:none;padding:2px;}
+  .msg .meta{display:block;font-size:10px;color:var(--text-lo);margin-top:5px;font-family:'IBM Plex Mono',monospace;}
+
+  .interim{
+    font-size:13px;color:var(--text-lo);font-style:italic;min-height:18px;
+    padding:0 2px;margin-top:6px;
+  }
+
+  .controls{
+    display:flex;align-items:center;justify-content:center;gap:18px;margin-top:18px;
+  }
+  #micBtn{
+    width:64px;height:64px;border-radius:50%;
+    background:var(--bg-2);border:1px solid var(--line);color:var(--text-hi);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;
+    font-size:22px;transition:.15s;
+  }
+  #micBtn.on{background:var(--teal-dim);border-color:var(--teal);color:var(--teal);box-shadow:0 0 0 6px var(--teal-dim);}
+  #micBtn.speaking{background:var(--amber-dim);border-color:var(--amber);color:var(--amber);}
+  #interruptBtn{
+    background:var(--bg-2);border:1px solid var(--line);color:var(--text-mid);
+    padding:9px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit;
+    visibility:hidden;
+  }
+  #interruptBtn.show{visibility:visible;}
+  #interruptBtn:hover{border-color:var(--red);color:var(--red);}
+
+  .badge{
+    font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;
+    padding:2px 7px;border-radius:5px;background:var(--bg-2);border:1px solid var(--line);color:var(--text-lo);
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="topbar">
+    <div class="brand">
+      <span class="mark">Sarvam-105B / voice</span>
+      <h1>Talk-mode assistant</h1>
+      <span class="sub">Sarvam STT (auto language-detect) + browser TTS, streamed LLM</span>
+    </div>
+    <button class="icon-btn" id="settingsBtn" title="Settings" aria-label="Settings">⚙</button>
+  </div>
+
+  <div class="panel" id="settings">
+    <div class="field">
+      <label>Sarvam API key</label>
+      <input type="password" id="apiKey" placeholder="sk_xxx or Bearer token" autocomplete="off">
+      <div class="hint">Stored only in this tab's memory — never saved to disk. Used for both the chat model and speech-to-text. Get a key at <a href="https://dashboard.sarvam.ai" target="_blank" rel="noopener">dashboard.sarvam.ai</a>. Calls go straight from your browser to api.sarvam.ai — if a request is blocked by CORS, proxy it through your own backend.</div>
+    </div>
+    <div class="field toggle-line">
+      <label style="margin:0;">Auto-detect spoken language — mix English / Tamil / Hindi / etc. freely, no need to pick one before speaking</label>
+      <label class="switch">
+        <input type="checkbox" id="autoDetect" checked>
+        <span class="slider-el"></span>
+      </label>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label id="langLabel">Speech language (fallback / TTS voice)</label>
+        <select id="langSelect">
+          <option value="en-IN">English (India)</option>
+          <option value="hi-IN">Hindi</option>
+          <option value="ta-IN">Tamil</option>
+          <option value="te-IN">Telugu</option>
+          <option value="kn-IN">Kannada</option>
+          <option value="ml-IN">Malayalam</option>
+          <option value="mr-IN">Marathi</option>
+          <option value="bn-IN">Bengali</option>
+          <option value="gu-IN">Gujarati</option>
+          <option value="pa-IN">Punjabi</option>
+        </select>
+        <div class="hint">With auto-detect on, this updates itself after every utterance (used to pick the reply's TTS voice). Turn auto-detect off to lock STT to one language.</div>
+      </div>
+      <div class="field">
+        <label>Model</label>
+        <select id="modelSelect">
+          <option value="sarvam-105b-conversations" selected>sarvam-105b-conversations (low-latency voice)</option>
+          <option value="sarvam-105b">sarvam-105b (128K, heavier reasoning)</option>
+        </select>
+      </div>
+    </div>
+    <div class="field toggle-line">
+      <label style="margin:0;">Fast mode — stream + skip reasoning + speak sentence-by-sentence</label>
+      <label class="switch">
+        <input type="checkbox" id="fastMode" checked>
+        <span class="slider-el"></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="scope"><canvas id="scopeCanvas"></canvas></div>
+
+    <div class="status-row">
+      <div class="status" id="statusEl"><span class="dot"></span><span id="statusText">idle</span></div>
+      <span class="latency" id="latencyEl"></span>
+    </div>
+
+    <div class="transcript" id="transcript">
+      <div class="msg system">Tap the mic and speak — a sentence or paragraph in English, Tamil or Hindi (or mixed) sends automatically after you pause.</div>
+    </div>
+    <div class="interim" id="interim"></div>
+
+    <div class="controls">
+      <button id="interruptBtn">■ stop reply</button>
+      <button id="micBtn" title="Start listening" aria-label="Start listening">●</button>
+      <span class="badge" id="modeBadge">fast</span>
+    </div>
+    <div style="display:flex;justify-content:center;margin-top:10px;">
+      <button id="testVoiceBtn" class="icon-btn" style="width:auto;padding:0 14px;font-size:12px;font-family:'IBM Plex Mono',monospace;">test voice ▸</button>
+    </div>
+    <div class="latency" id="ttsDebug" style="text-align:center;margin-top:6px;"></div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const settingsBtn = $('settingsBtn'), settingsPanel = $('settings');
+  const apiKeyInput = $('apiKey'), langSelect = $('langSelect'), modelSelect = $('modelSelect'), fastModeToggle = $('fastMode');
+  const autoDetectToggle = $('autoDetect');
+  const micBtn = $('micBtn'), interruptBtn = $('interruptBtn'), transcriptEl = $('transcript'), interimEl = $('interim');
+  const statusEl = $('statusEl'), statusText = $('statusText'), latencyEl = $('latencyEl'), modeBadge = $('modeBadge');
+  const scopeCanvas = $('scopeCanvas');
+  const testVoiceBtn = $('testVoiceBtn'), ttsDebug = $('ttsDebug');
+
+  if (!('speechSynthesis' in window)) {
+    ttsDebug.textContent = 'speechSynthesis not supported in this browser';
+    ttsDebug.style.color = 'var(--red)';
+  }
+  if (!navigator.mediaDevices || !(window.AudioContext || window.webkitAudioContext)) {
+    setStatus('error', 'mic recording unsupported');
+    addMsg('system', 'This browser does not support getUserMedia / Web Audio. Try Chrome, Edge, or Safari 16+.');
+  }
+
+  settingsBtn.onclick = () => settingsPanel.classList.toggle('open');
+  fastModeToggle.onchange = () => modeBadge.textContent = fastModeToggle.checked ? 'fast' : 'full';
+
+  // ---------- state ----------
+  let listening = false;          // user wants mic on
+  let history = [];               // {role, content}
+  let botSpeaking = false;
+  let abortController = null;
+
+  // mic / STT state
+  let mediaStream = null;
+  let currentlyRecording = false;
+  let vadIntervalId = null;
+  let vadSilenceTimer = null;
+  let utteranceStartTime = 0;
+  const VAD_THRESHOLD = 0.02;     // RMS level that counts as "speaking" — raise if it triggers on background noise
+  const VAD_SILENCE_MS = 900;     // pause length that ends an utterance and sends it
+  const MIN_UTTERANCE_MS = 350;   // shorter than this + silence => treated as noise, discarded
+
+  // ---------- UI helpers ----------
+  function setStatus(kind, label){
+    statusEl.className = 'status ' + kind;
+    statusText.textContent = label;
+  }
+  function addMsg(role, text){
+    const div = document.createElement('div');
+    div.className = 'msg ' + role;
+    div.textContent = text;
+    transcriptEl.appendChild(div);
+    transcriptEl.scrollTop = transcriptEl.scrollHeight;
+    return div;
+  }
+  function addBotStreamMsg(){
+    const div = document.createElement('div');
+    div.className = 'msg bot streaming';
+    div.textContent = '';
+    transcriptEl.appendChild(div);
+    transcriptEl.scrollTop = transcriptEl.scrollHeight;
+    return div;
+  }
+
+  // ---------- oscilloscope visual ----------
+  const ctx = scopeCanvas.getContext('2d');
+  let audioCtx, analyser, dataArray, srcNode;
+  function sizeCanvas(){
+    scopeCanvas.width = scopeCanvas.clientWidth * devicePixelRatio;
+    scopeCanvas.height = scopeCanvas.clientHeight * devicePixelRatio;
+  }
+  window.addEventListener('resize', sizeCanvas);
+  sizeCanvas();
+
+  function drawScope(){
+    requestAnimationFrame(drawScope);
+    const w = scopeCanvas.width, h = scopeCanvas.height;
+    ctx.clearRect(0,0,w,h);
+    let color = '#3a4245';
+    if (currentlyRecording) color = '#5eead4';
+    else if (botSpeaking) color = '#f0b429';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2 * devicePixelRatio;
+    ctx.beginPath();
+    if (analyser) {
+      analyser.getByteTimeDomainData(dataArray);
+      const slice = w / dataArray.length;
+      let x = 0;
+      for (let i=0;i<dataArray.length;i++){
+        const v = dataArray[i]/128.0;
+        const y = v * h/2;
+        i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+        x += slice;
+      }
+    } else {
+      ctx.moveTo(0,h/2); ctx.lineTo(w,h/2);
+    }
+    ctx.stroke();
+  }
+  drawScope();
+
+  async function ensureMicStream(){
+    if (mediaStream) return mediaStream;
+    mediaStream = await navigator.mediaDevices.getUserMedia({audio:true});
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 512;
+    dataArray = new Uint8Array(analyser.fftSize);
+    srcNode = audioCtx.createMediaStreamSource(mediaStream);
+    srcNode.connect(analyser);
+    attachPcmCapture();
+    return mediaStream;
+  }
+
+  function currentRms(){
+    analyser.getByteTimeDomainData(dataArray);
+    let sum = 0;
+    for (let i=0;i<dataArray.length;i++){
+      const v = (dataArray[i]-128)/128;
+      sum += v*v;
+    }
+    return Math.sqrt(sum/dataArray.length);
+  }
+
+  // ---------- mic capture + VAD (voice activity detection) ----------
+  // Sarvam's /speech-to-text endpoint only accepts wav/mp3/pcm — not webm/opus, which is
+  // all MediaRecorder produces in Chrome/Edge/Firefox. So capture raw PCM via a
+  // ScriptProcessorNode and encode it to a WAV blob ourselves instead of using MediaRecorder.
+  let scriptNode = null;
+  let pcmChunks = [];
+  let recordingActive = false;
+
+  function attachPcmCapture(){
+    if (scriptNode) return;
+    scriptNode = audioCtx.createScriptProcessor(4096, 1, 1);
+    scriptNode.onaudioprocess = (e) => {
+      if (!recordingActive) return;
+      pcmChunks.push(new Float32Array(e.inputBuffer.getChannelData(0))); // copy — the buffer is reused
+    };
+    srcNode.connect(scriptNode);
+    // ScriptProcessorNode only fires onaudioprocess once it's part of a graph that reaches
+    // the destination. We never write to the output buffer, so this stays silent.
+    scriptNode.connect(audioCtx.destination);
+  }
+
+  function concatFloat32(chunks){
+    let total = 0; chunks.forEach(c => total += c.length);
+    const out = new Float32Array(total);
+    let offset = 0;
+    chunks.forEach(c => { out.set(c, offset); offset += c.length; });
+    return out;
+  }
+
+  function downsampleBuffer(buffer, srcRate, dstRate){
+    if (dstRate === srcRate) return buffer;
+    const ratio = srcRate / dstRate;
+    const newLen = Math.round(buffer.length / ratio);
+    const result = new Float32Array(newLen);
+    let offsetResult = 0, offsetBuffer = 0;
+    while (offsetResult < newLen) {
+      const nextOffsetBuffer = Math.round((offsetResult + 1) * ratio);
+      let accum = 0, count = 0;
+      for (let i = offsetBuffer; i < nextOffsetBuffer && i < buffer.length; i++) { accum += buffer[i]; count++; }
+      result[offsetResult] = count > 0 ? accum / count : 0;
+      offsetResult++;
+      offsetBuffer = nextOffsetBuffer;
+    }
+    return result;
+  }
+
+  function floatTo16BitPCM(float32){
+    const out = new Int16Array(float32.length);
+    for (let i = 0; i < float32.length; i++) {
+      const s = Math.max(-1, Math.min(1, float32[i]));
+      out[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    return out;
+  }
+
+  function encodeWav(chunks, srcSampleRate){
+    const merged = concatFloat32(chunks);
+    const targetRate = 16000; // Sarvam's STT works best at 16kHz
+    const down = downsampleBuffer(merged, srcSampleRate, targetRate);
+    const pcm16 = floatTo16BitPCM(down);
+    const blockAlign = 2, byteRate = targetRate * blockAlign, dataSize = pcm16.length * 2;
+    const buf = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(buf);
+    const writeStr = (offset, str) => { for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i)); };
+    writeStr(0, 'RIFF'); view.setUint32(4, 36 + dataSize, true); writeStr(8, 'WAVE');
+    writeStr(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true); view.setUint32(24, targetRate, true);
+    view.setUint32(28, byteRate, true); view.setUint16(32, blockAlign, true); view.setUint16(34, 16, true);
+    writeStr(36, 'data'); view.setUint32(40, dataSize, true);
+    let offset = 44;
+    for (let i = 0; i < pcm16.length; i++, offset += 2) view.setInt16(offset, pcm16[i], true);
+    return new Blob([view], { type: 'audio/wav' });
+  }
+
+  function startUtteranceRecording(){
+    if (currentlyRecording) return;
+    pcmChunks = [];
+    recordingActive = true;
+    currentlyRecording = true;
+    utteranceStartTime = performance.now();
+    interimEl.textContent = 'listening…';
+  }
+
+  function stopUtteranceRecording(discard){
+    clearTimeout(vadSilenceTimer);
+    vadSilenceTimer = null;
+    recordingActive = false;
+    currentlyRecording = false;
+    const chunks = pcmChunks;
+    pcmChunks = [];
+    if (discard || !chunks.length) return;
+    const wavBlob = encodeWav(chunks, audioCtx.sampleRate);
+    if (wavBlob.size < 3000) return; // too short to be real speech — discard (~44-byte header + <~1500 samples)
+    transcribeAndSend(wavBlob);
+  }
+
+  function vadTick(){
+    if (!listening || !analyser) return;
+    const level = currentRms();
+    if (level > VAD_THRESHOLD) {
+      // barge-in: user started talking while the bot is mid-reply
+      if (botSpeaking) stopSpeaking();
+      if (abortController) { abortController.abort(); abortController = null; }
+      if (!currentlyRecording) startUtteranceRecording();
+      clearTimeout(vadSilenceTimer);
+      vadSilenceTimer = null;
+      setStatus('listening', 'listening');
+    } else if (currentlyRecording) {
+      if (!vadSilenceTimer) {
+        vadSilenceTimer = setTimeout(() => {
+          vadSilenceTimer = null;
+          const tooShort = (performance.now() - utteranceStartTime) < MIN_UTTERANCE_MS;
+          stopUtteranceRecording(tooShort);
+        }, VAD_SILENCE_MS);
+      }
+    }
+  }
+
+  micBtn.onclick = async () => {
+    if (!navigator.mediaDevices || !(window.AudioContext || window.webkitAudioContext)) return;
+    if (!listening) {
+      if (!apiKeyInput.value.trim()) { settingsPanel.classList.add('open'); apiKeyInput.focus(); return; }
+      try {
+        await ensureMicStream();
+      } catch(e) {
+        setStatus('error', 'mic permission denied');
+        return;
+      }
+      listening = true;
+      micBtn.classList.add('on');
+      vadIntervalId = setInterval(vadTick, 120);
+      setStatus('listening', 'listening');
+    } else {
+      listening = false;
+      micBtn.classList.remove('on');
+      clearInterval(vadIntervalId);
+      vadIntervalId = null;
+      stopUtteranceRecording(true); // discard any in-flight partial utterance
+      interimEl.textContent = '';
+      setStatus('idle', 'idle');
+    }
+  };
+
+  interruptBtn.onclick = () => {
+    stopSpeaking();
+    if (abortController) { abortController.abort(); abortController = null; }
+    setStatus(listening ? 'listening' : 'idle', listening ? 'listening' : 'idle');
+    interruptBtn.classList.remove('show');
+  };
+
+  // ---------- Sarvam STT (Saaras v3 — code-mixed, auto language detect) ----------
+  async function transcribeAndSend(blob){
+    const key = apiKeyInput.value.trim();
+    if (!key) { settingsPanel.classList.add('open'); return; }
+
+    setStatus('thinking', 'transcribing');
+    interimEl.textContent = 'transcribing…';
+
+    const fd = new FormData();
+    fd.append('file', blob, 'utterance.wav');
+    fd.append('model', 'saaras:v3');
+    fd.append('mode', 'transcribe');
+    fd.append('language_code', autoDetectToggle.checked ? 'unknown' : langSelect.value);
+
+    try {
+      const res = await fetch('https://api.sarvam.ai/speech-to-text', {
+        method: 'POST',
+        headers: { 'api-subscription-key': key },
+        body: fd
+      });
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => '');
+        throw new Error('STT HTTP ' + res.status + (errBody ? ' — ' + errBody.slice(0,200) : ''));
+      }
+      const data = await res.json();
+      const text = (data.transcript || '').trim();
+      interimEl.textContent = '';
+
+      if (data.language_code && autoDetectToggle.checked) {
+        const opt = Array.from(langSelect.options).find(o => o.value === data.language_code);
+        if (opt) langSelect.value = data.language_code;
+      }
+
+      if (text) {
+        sendTurn(text);
+      } else {
+        setStatus(listening ? 'listening' : 'idle', listening ? 'listening' : 'idle');
+      }
+    } catch (err) {
+      setStatus('error', 'stt failed');
+      interimEl.textContent = '';
+      addMsg('system', 'Transcription error: ' + err.message);
+      if (listening) setTimeout(() => setStatus('listening','listening'), 1500);
+    }
+  }
+
+  // ---------- TTS ----------
+  let voicesCache = [];
+  function loadVoices(){ voicesCache = speechSynthesis.getVoices(); }
+  loadVoices();
+  if (speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = loadVoices;
+  let voicePolls = 0;
+  const voicePollTimer = setInterval(() => {
+    loadVoices();
+    if (voicesCache.length || ++voicePolls > 20) clearInterval(voicePollTimer);
+  }, 250);
+
+  function pickVoice(lang){
+    if (!voicesCache.length) voicesCache = speechSynthesis.getVoices();
+    const base = lang.split('-')[0];
+    return voicesCache.find(v => v.lang === lang)
+        || voicesCache.find(v => v.lang && v.lang.startsWith(base))
+        || null;
+  }
+
+  let resumeNudge = null;
+  function startResumeNudge(){
+    stopResumeNudge();
+    resumeNudge = setInterval(() => { if (speechSynthesis.speaking) speechSynthesis.resume(); }, 4000);
+  }
+  function stopResumeNudge(){ if (resumeNudge) { clearInterval(resumeNudge); resumeNudge = null; } }
+
+  let ttsQueue = [];
+  let ttsPlaying = false;
+  function queueSpeech(text){
+    text = text.trim();
+    if (!text) return;
+    ttsQueue.push(text);
+    if (!ttsPlaying) playNextInQueue();
+  }
+  function playNextInQueue(){
+    if (!ttsQueue.length) {
+      ttsPlaying = false; botSpeaking = false;
+      micBtn.classList.remove('speaking');
+      stopResumeNudge();
+      return;
+    }
+    ttsPlaying = true; botSpeaking = true; micBtn.classList.add('speaking');
+    setStatus('speaking', 'speaking');
+    const text = ttsQueue.shift();
+    const utter = new SpeechSynthesisUtterance(text);
+    const lang = langSelect.value;
+    const v = pickVoice(lang);
+    if (v) {
+      utter.voice = v;
+      utter.lang = v.lang;
+    } else {
+      ttsDebug.textContent = (voicesCache.length ? 'no installed voice for ' + lang + ', using system default' : '0 system voices detected — install a language pack under Windows Settings > Time & language > Speech');
+    }
+    utter.rate = 1.02;
+    utter.onstart = () => { startResumeNudge(); if (v) ttsDebug.textContent = ''; };
+    utter.onend = playNextInQueue;
+    utter.onerror = (e) => {
+      ttsDebug.textContent = 'speech error: ' + (e.error || 'unknown');
+      ttsDebug.style.color = 'var(--red)';
+      playNextInQueue();
+    };
+    try {
+      speechSynthesis.speak(utter);
+      setTimeout(() => {
+        if (ttsPlaying && !speechSynthesis.speaking && !speechSynthesis.pending) {
+          ttsDebug.textContent = 'speak() did not start — retrying once';
+          speechSynthesis.cancel();
+          speechSynthesis.speak(utter);
+        }
+      }, 300);
+    } catch(err){
+      ttsDebug.textContent = 'speak() threw: ' + err.message;
+      ttsDebug.style.color = 'var(--red)';
+    }
+  }
+  function stopSpeaking(){
+    ttsQueue = [];
+    speechSynthesis.cancel();
+    stopResumeNudge();
+    ttsPlaying = false; botSpeaking = false;
+    micBtn.classList.remove('speaking');
+    interruptBtn.classList.remove('show');
+  }
+
+  testVoiceBtn.onclick = () => {
+    ttsDebug.textContent = '';
+    ttsDebug.style.color = 'var(--text-lo)';
+    if (!voicesCache.length) voicesCache = speechSynthesis.getVoices();
+    console.log('available voices:', voicesCache.map(v => v.name + ' (' + v.lang + ')'));
+    if (!voicesCache.length) {
+      ttsDebug.textContent = '0 voices reported by this browser — Windows Settings > Time & language > Speech to add one, then reload this page';
+      ttsDebug.style.color = 'var(--red)';
+    }
+    const lang = langSelect.value;
+    const sample = {
+      'en-IN': 'This is a voice test.', 'hi-IN': 'यह एक आवाज़ परीक्षण है।',
+      'ta-IN': 'இது ஒரு குரல் சோதனை.', 'te-IN': 'ఇది ఒక వాయిస్ పరీక్ష.',
+      'kn-IN': 'ಇದು ಧ್ವನಿ ಪರೀಕ್ಷೆ.', 'ml-IN': 'ഇതൊരു വോയ്‌സ് ടെസ്റ്റാണ്.',
+      'mr-IN': 'ही एक आवाज चाचणी आहे.', 'bn-IN': 'এটি একটি ভয়েস পরীক্ষা।',
+      'gu-IN': 'આ એક વૉઇસ ટેસ્ટ છે.', 'pa-IN': 'ਇਹ ਇੱਕ ਆਵਾਜ਼ ਟੈਸਟ ਹੈ।'
+    }[lang] || 'This is a voice test.';
+    queueSpeech(sample);
+  };
+
+  // splits streamed text into speakable sentences, keeps the trailing partial sentence buffered
+  const SENTENCE_RE = /[^.!?।॥]+[.!?।॥]+[\s]*|[^.!?।॥]+$/g;
+  function extractCompleteSentences(buffer){
+    const matches = buffer.match(SENTENCE_RE) || [];
+    if (!matches.length) return { toSpeak: [], rest: buffer };
+    const last = matches[matches.length-1];
+    const endsClean = /[.!?।॥]\s*$/.test(buffer);
+    if (endsClean) return { toSpeak: matches, rest: '' };
+    return { toSpeak: matches.slice(0,-1), rest: last };
+  }
+
+  // ---------- LLM call (Sarvam-105B, streamed) ----------
+  async function sendTurn(userText){
+    addMsg('user', userText);
+    history.push({ role: 'user', content: userText });
+
+    const key = apiKeyInput.value.trim();
+    const model = modelSelect.value;
+    const fast = fastModeToggle.checked;
+
+    setStatus('thinking', 'thinking');
+    const t0 = performance.now();
+    let firstTokenAt = null;
+    interruptBtn.classList.add('show');
+
+    const botDiv = addBotStreamMsg();
+    let fullText = '';
+    let speakBuffer = '';
+
+    abortController = new AbortController();
+    try {
+      const res = await fetch('https://api.sarvam.ai/v1/chat/completions', {
+        method: 'POST',
+        signal: abortController.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + key,
+          'api-subscription-key': key
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: 'You are a fast, concise voice assistant. Reply in the same language the user spoke in (English, Tamil, or Hindi, including mixed code-switched speech). Keep responses conversational and not overly long, since they will be read aloud.' },
+            ...history
+          ],
+          temperature: 0.3,
+          stream: true,
+          reasoning_effort: fast ? null : 'low',
+          max_tokens: 1024
+        })
+      });
+
+      if (!res.ok) {
+        const errBody = await res.text().catch(()=> '');
+        throw new Error('HTTP ' + res.status + (errBody ? ' — ' + errBody.slice(0,200) : ''));
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let sseBuffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        sseBuffer += decoder.decode(value, { stream: true });
+        const lines = sseBuffer.split('\n');
+        sseBuffer = lines.pop();
+        for (const line of lines) {
+          const t = line.trim();
+          if (!t.startsWith('data:')) continue;
+          const payload = t.slice(5).trim();
+          if (payload === '[DONE]') continue;
+          let json;
+          try { json = JSON.parse(payload); } catch(e) { continue; }
+          const choice = json?.choices?.[0];
+          const delta = choice?.delta?.content ?? choice?.text ?? choice?.message?.content;
+          if (!delta) { if (choice) console.debug('sarvam stream chunk had no text field', choice); continue; }
+          if (firstTokenAt === null) {
+            firstTokenAt = performance.now();
+            latencyEl.textContent = 'first token ' + Math.round(firstTokenAt - t0) + 'ms';
+          }
+          fullText += delta;
+          botDiv.textContent = fullText;
+          transcriptEl.scrollTop = transcriptEl.scrollHeight;
+
+          if (fast) {
+            speakBuffer += delta;
+            const { toSpeak, rest } = extractCompleteSentences(speakBuffer);
+            toSpeak.forEach(queueSpeech);
+            speakBuffer = rest;
+          }
+        }
+      }
+
+      if (fast && speakBuffer.trim()) queueSpeech(speakBuffer);
+      if (!fast && fullText.trim()) queueSpeech(fullText);
+
+      botDiv.classList.remove('streaming');
+      const totalMs = Math.round(performance.now() - t0);
+      const meta = document.createElement('span');
+      meta.className = 'meta';
+      meta.textContent = model + ' · ' + totalMs + 'ms total';
+      botDiv.appendChild(meta);
+
+      history.push({ role: 'assistant', content: fullText });
+      setStatus(listening ? 'listening' : 'idle', listening ? 'listening' : 'idle');
+    } catch (err) {
+      botDiv.classList.remove('streaming');
+      if (err.name === 'AbortError') {
+        botDiv.textContent = fullText || '(interrupted)';
+      } else {
+        setStatus('error', 'request failed');
+        botDiv.textContent = fullText || ('Error: ' + err.message);
+        botDiv.style.borderColor = 'var(--red)';
+      }
+    } finally {
+      abortController = null;
+      interruptBtn.classList.remove('show');
+    }
+  }
+})();
+</script>
+</body>
+</html>
