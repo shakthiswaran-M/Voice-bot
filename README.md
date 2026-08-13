@@ -13,9 +13,6 @@ No backend, no build step, no dependencies to install — it's one `.html` file 
 - 📊 **Live waveform** — oscilloscope-style visual feedback for mic input and playback
 - 🔊 **Voice test button** — check that your browser/OS has a TTS voice installed for your language before relying on it
 
-## Demo / Screenshot
-
-_Add a screenshot or GIF of the app here._
 
 ## Requirements
 
